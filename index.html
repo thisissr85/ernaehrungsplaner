@@ -5079,7 +5079,146 @@
     </script>
 
 
+    <!-- ===================================================================== -->
+    <!-- BAUSTEIN 65: GENAUEN SUPABASE-FEHLER BEIM UPLOAD IM KLARTEXT ZEIGEN   -->
+    <!-- ===================================================================== -->
+    <script>
+        (function() {
+            const STD_URL = 'https://supabase.co';
+            const STD_KEY = 'sb_publishable_FUjrl_0V4OKGjqhlywNmvA_inSrxqu4';
 
+            window.sbJetztHochladen = async function(mitMeldung) {
+                const saved = JSON.parse(localStorage.getItem('ernaehrung_sb_config') || '{}');
+                const syncId = saved.syncId || document.getElementById('sb-sync-id')?.value.trim();
+                if (!syncId) return;
+
+                const badge = document.getElementById('cloud-status-badge');
+                const log = document.getElementById('sb-info-log');
+                if (badge) badge.innerText = '☁️ Speichert...';
+
+                try {
+                    const res = await fetch(`${STD_URL}/rest/v1/ernaehrung_sync?on_conflict=sync_key`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': STD_KEY,
+                            'Authorization': 'Bearer ' + STD_KEY,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates,return=minimal'
+                        },
+                        body: JSON.stringify({
+                            sync_key: syncId,
+                            daten: AppDaten,
+                            updated_at: new Date().toISOString()
+                        })
+                    });
+
+                    if (res.ok) {
+                        const uhrzeit = new Date().toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+                        if (badge) { badge.innerText = `☁️ Gespeichert (${uhrzeit})`; badge.style.color = '#2e6f56'; }
+                        if (log)   { log.innerText = `✅ Gespeichert (${uhrzeit})`; log.style.color = '#2e6f56'; }
+                        if (mitMeldung) alert('✅ Dein aktueller Stand wurde erfolgreich in die Cloud übertragen!');
+                    } else {
+                        const fehlerText = await res.text();
+                        if (badge) { badge.innerText = '⚠️ Upload-Fehler'; badge.style.color = '#dc3545'; }
+                        if (log)   { log.innerText = `⚠️ Fehler (${res.status}): ${fehlerText}`; log.style.color = '#dc3545'; }
+                        if (mitMeldung) alert(`Supabase meldet Fehler ${res.status}:\n\n${fehlerText}`);
+                    }
+                } catch (err) {
+                    if (log) log.innerText = '⚠️ Netzwerkfehler: ' + err.message;
+                }
+            };
+        })();
+    </script>
+
+    <!-- ===================================================================== -->
+    <!-- BAUSTEIN 66: SUPABASE PUBLISHABLE-KEY HEADER KORRIGIEREN (CORS FIX)   -->
+    <!-- ===================================================================== -->
+    <script>
+        (function() {
+            const STD_URL = 'https://supabase.co';
+            const STD_KEY = 'sb_publishable_FUjrl_0V4OKGjqhlywNmvA_inSrxqu4';
+
+            // 1. Download ohne blockierenden Bearer-Header
+            window.sbJetztHerunterladen = async function(silent) {
+                const saved = JSON.parse(localStorage.getItem('ernaehrung_sb_config') || '{}');
+                const syncId = saved.syncId || document.getElementById('sb-sync-id')?.value.trim();
+                if (!syncId) return;
+
+                const badge = document.getElementById('cloud-status-badge');
+                const log = document.getElementById('sb-info-log');
+                if (badge) badge.innerText = '☁️ Lade...';
+
+                try {
+                    const res = await fetch(`${STD_URL}/rest/v1/ernaehrung_sync?sync_key=eq.${encodeURIComponent(syncId)}&select=daten`, {
+                        headers: { 'apikey': STD_KEY }
+                    });
+                    if (!res.ok) {
+                        const txt = await res.text();
+                        if (log) log.innerText = `⚠️ Lade-Fehler (${res.status}): ${txt}`;
+                        return;
+                    }
+                    const rows = await res.json();
+                    if (Array.isArray(rows) && rows.length > 0 && rows.at(0).daten) {
+                        Object.assign(AppDaten, rows.at(0).daten);
+                        localStorage.setItem('ernaehrungsplaner_daten_v1', JSON.stringify(AppDaten));
+                        if (window.tpZeichnen) tpZeichnen();
+                        if (window.ksListeZeichnen) ksListeZeichnen();
+                        if (window.bksListeZeichnen) bksListeZeichnen();
+                        if (window.lmListeZeichnen) lmListeZeichnen();
+                        if (badge) { badge.innerText = '☁️ Synchronisiert'; badge.style.color = '#2e6f56'; }
+                        if (log)   { log.innerText = '✅ Daten aus Cloud geladen!'; log.style.color = '#2e6f56'; }
+                    } else {
+                        if (badge) { badge.innerText = '☁️ Bereit (leer)'; badge.style.color = '#0d9488'; }
+                        if (log)   { log.innerText = 'ℹ️ Verbunden – Cloud ist für dieses Passwort noch leer.'; log.style.color = '#0d9488'; }
+                    }
+                } catch (err) {
+                    if (badge) { badge.innerText = '⚠️ Offline/Blockiert'; badge.style.color = '#dc3545'; }
+                    if (log)   { log.innerText = '⚠️ Verbindung blockiert: ' + err.message; log.style.color = '#dc3545'; }
+                }
+            };
+
+            // 2. Upload ohne blockierenden Bearer-Header
+            window.sbJetztHochladen = async function(mitMeldung) {
+                const saved = JSON.parse(localStorage.getItem('ernaehrung_sb_config') || '{}');
+                const syncId = saved.syncId || document.getElementById('sb-sync-id')?.value.trim();
+                if (!syncId) return;
+
+                const badge = document.getElementById('cloud-status-badge');
+                const log = document.getElementById('sb-info-log');
+                if (badge) badge.innerText = '☁️ Speichert...';
+
+                try {
+                    const res = await fetch(`${STD_URL}/rest/v1/ernaehrung_sync?on_conflict=sync_key`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': STD_KEY,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates,return=minimal'
+                        },
+                        body: JSON.stringify({
+                            sync_key: syncId,
+                            daten: AppDaten,
+                            updated_at: new Date().toISOString()
+                        })
+                    });
+
+                    if (res.ok) {
+                        const uhrzeit = new Date().toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+                        if (badge) { badge.innerText = `☁️ Gespeichert (${uhrzeit})`; badge.style.color = '#2e6f56'; }
+                        if (log)   { log.innerText = `✅ Gespeichert (${uhrzeit})`; log.style.color = '#2e6f56'; }
+                        if (mitMeldung) alert('✅ Dein aktueller Stand wurde erfolgreich in die Cloud übertragen!');
+                    } else {
+                        const fehlerText = await res.text();
+                        if (badge) { badge.innerText = '⚠️ Upload-Fehler'; badge.style.color = '#dc3545'; }
+                        if (log)   { log.innerText = `⚠️ Fehler (${res.status}): ${fehlerText}`; log.style.color = '#dc3545'; }
+                    }
+                } catch (err) {
+                    if (badge) { badge.innerText = '⚠️ Offline/Blockiert'; badge.style.color = '#dc3545'; }
+                    if (log)   { log.innerText = '⚠️ Verbindung blockiert: ' + err.message; log.style.color = '#dc3545'; }
+                }
+            };
+        })();
+    </script>
 
 
 </body>
