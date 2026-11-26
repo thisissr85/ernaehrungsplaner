@@ -5221,5 +5221,85 @@
     </script>
 
 
+    <!-- ===================================================================== -->
+    <!-- BAUSTEIN 67: OFFIZIELLER SUPABASE-CLIENT (LÖST CORS / FETCH-BLOCKADE) -->
+    <!-- ===================================================================== -->
+    <script src="https://jsdelivr.net"></script>
+    <script>
+        (function() {
+            const STD_URL = 'https://supabase.co';
+            const STD_KEY = 'sb_publishable_FUjrl_0V4OKGjqhlywNmvA_inSrxqu4';
+
+            // Offiziellen Supabase-Client initialisieren
+            const sbClient = window.supabase ? window.supabase.createClient(STD_URL, STD_KEY) : null;
+
+            function setzeStatus(text, farbe) {
+                const badge = document.getElementById('cloud-status-badge');
+                const log = document.getElementById('sb-info-log');
+                if (badge) { badge.innerText = text; badge.style.color = farbe || '#2e6f56'; }
+                if (log)   { log.innerText = text;   log.style.color = farbe || '#2e6f56'; }
+            }
+
+            // 1. Herunterladen über den offiziellen Client
+            window.sbJetztHerunterladen = async function(silent) {
+                if (!sbClient) return setzeStatus('⚠️ Supabase-Bibliothek lädt noch...', '#dc3545');
+                const saved = JSON.parse(localStorage.getItem('ernaehrung_sb_config') || '{}');
+                const syncId = saved.syncId || document.getElementById('sb-sync-id')?.value.trim();
+                if (!syncId) return;
+
+                setzeStatus('☁️ Lade...', '#64748b');
+                const { data, error } = await sbClient
+                    .from('ernaehrung_sync')
+                    .select('daten')
+                    .eq('sync_key', syncId)
+                    .maybeSingle();
+
+                if (error) {
+                    setzeStatus('⚠️ Lade-Fehler: ' + error.message, '#dc3545');
+                    return;
+                }
+
+                if (data && data.daten) {
+                    Object.assign(AppDaten, data.daten);
+                    localStorage.setItem('ernaehrungsplaner_daten_v1', JSON.stringify(AppDaten));
+                    if (window.tpZeichnen) tpZeichnen();
+                    if (window.ksListeZeichnen) ksListeZeichnen();
+                    if (window.bksListeZeichnen) bksListeZeichnen();
+                    if (window.lmListeZeichnen) lmListeZeichnen();
+                    setzeStatus('✅ Daten aus Cloud geladen!', '#2e6f56');
+                } else {
+                    setzeStatus('ℹ️ Verbunden – Cloud ist für dieses Passwort noch leer.', '#0d9488');
+                }
+            };
+
+            // 2. Hochladen über den offiziellen Client
+            window.sbJetztHochladen = async function(mitMeldung) {
+                if (!sbClient) return setzeStatus('⚠️ Supabase-Bibliothek lädt noch...', '#dc3545');
+                const saved = JSON.parse(localStorage.getItem('ernaehrung_sb_config') || '{}');
+                const syncId = saved.syncId || document.getElementById('sb-sync-id')?.value.trim();
+                if (!syncId) return;
+
+                setzeStatus('☁️ Speichert...', '#64748b');
+                const { error } = await sbClient
+                    .from('ernaehrung_sync')
+                    .upsert({
+                        sync_key: syncId,
+                        daten: AppDaten,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'sync_key' });
+
+                if (error) {
+                    setzeStatus('⚠️ Upload-Fehler: ' + error.message, '#dc3545');
+                    if (mitMeldung) alert('Supabase meldet:\n' + error.message);
+                } else {
+                    const uhrzeit = new Date().toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+                    setzeStatus(`✅ Gespeichert (${uhrzeit})`, '#2e6f56');
+                    if (mitMeldung) alert('✅ Dein aktueller Stand wurde erfolgreich in die Cloud übertragen!');
+                }
+            };
+        })();
+    </script>
+
+
 </body>
 </html>
