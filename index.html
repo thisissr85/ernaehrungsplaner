@@ -18,6 +18,7 @@
     'apikey': SUPABASE_KEY,
     'Authorization': 'Bearer ' + SUPABASE_KEY,
     'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
     'x-app-secret': secret || ''
   };
 
@@ -37,7 +38,7 @@
       }
     } else if (xhr.status === 401 || xhr.status === 403) {
       localStorage.removeItem(SECRET_STORAGE_KEY);
-      alert('Geheimcode falsch oder Zugriff verweigert. Bitte Seite neu laden.');
+      alert('Geheimcode falsch! Bitte Seite neu laden.');
     }
   } catch (e) {
     console.warn('Offline-Modus aktiv:', e);
@@ -45,7 +46,7 @@
 
   // 2. Änderungen automatisch in die Cloud speichern
   let syncTimer = null;
-  function pushToCloud() {
+  window.syncNowToCloud = function() {
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => {
       const snapshot = {};
@@ -57,23 +58,26 @@
         method: 'PATCH',
         headers: headers,
         body: JSON.stringify({ data: snapshot })
+      }).then(r => {
+        if (!r.ok) alert('Speichern in Cloud fehlgeschlagen (Code ' + r.status + ') – stimmt der Geheimcode?');
       }).catch(err => console.error('Sync-Fehler:', err));
-    }, 800);
-  }
+    }, 500);
+  };
 
   const origSetItem = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function(k, v) {
     origSetItem(k, v);
-    if (k !== SECRET_STORAGE_KEY) pushToCloud();
+    if (k !== SECRET_STORAGE_KEY) window.syncNowToCloud();
   };
 
   const origRemoveItem = localStorage.removeItem.bind(localStorage);
   localStorage.removeItem = function(k) {
     origRemoveItem(k);
-    if (k !== SECRET_STORAGE_KEY) pushToCloud();
+    if (k !== SECRET_STORAGE_KEY) window.syncNowToCloud();
   };
 })();
 </script>
+
 
 
     <!-- Grundeinstellungen für Umlaute (ä, ö, ü, ß) und Handy-Display -->
