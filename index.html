@@ -7,20 +7,11 @@
   const HOST = 'czawxhzlvtywzragbrjl' + '.supabase.co';
   const SUPABASE_URL = 'https://' + HOST + '/rest/v1/planner_data?id=eq.1';
   const SUPABASE_KEY = 'sb_publishable_FUjrl_0V4OKGjqhlywNmvA_inSrxqu4';
-  const SECRET_STORAGE_KEY = 'planner_app_secret';
-
-  let secret = localStorage.getItem(SECRET_STORAGE_KEY);
-  if (!secret) {
-    secret = prompt('Bitte gib deinen Geheimcode für den Ernährungsplaner ein:');
-    if (secret) localStorage.setItem(SECRET_STORAGE_KEY, secret);
-  }
 
   const headers = {
     'apikey': SUPABASE_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_KEY,
     'Content-Type': 'application/json',
-    'Prefer': 'return=representation',
-    'x-app-secret': secret || ''
+    'Prefer': 'return=representation'
   };
 
   // 1. Daten beim Start aus der Cloud laden
@@ -32,14 +23,10 @@
     if (xhr.status === 200) {
       const rows = JSON.parse(xhr.responseText);
       if (rows.length > 0 && rows[0].data && Object.keys(rows[0].data).length > 0) {
-        const cloudData = rows[0].data;
-        for (const [key, val] of Object.entries(cloudData)) {
-          if (key !== SECRET_STORAGE_KEY) localStorage.setItem(key, val);
+        for (const [key, val] of Object.entries(rows[0].data)) {
+          localStorage.setItem(key, val);
         }
       }
-    } else if (xhr.status === 401 || xhr.status === 403) {
-      localStorage.removeItem(SECRET_STORAGE_KEY);
-      alert('Geheimcode falsch! Bitte Seite neu laden.');
     }
   } catch (e) {
     console.warn('Offline-Modus aktiv:', e);
@@ -47,37 +34,36 @@
 
   // 2. Änderungen automatisch in die Cloud speichern
   let syncTimer = null;
-  window.syncNowToCloud = function() {
+  function pushToCloud() {
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => {
       const snapshot = {};
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k !== SECRET_STORAGE_KEY) snapshot[k] = localStorage.getItem(k);
+        snapshot[k] = localStorage.getItem(k);
       }
       fetch(SUPABASE_URL, {
         method: 'PATCH',
         headers: headers,
         body: JSON.stringify({ data: snapshot })
-      }).then(r => {
-        if (!r.ok) alert('Speichern in Cloud fehlgeschlagen (Code ' + r.status + ') – stimmt der Geheimcode?');
       }).catch(err => console.error('Sync-Fehler:', err));
     }, 500);
-  };
+  }
 
   const origSetItem = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function(k, v) {
     origSetItem(k, v);
-    if (k !== SECRET_STORAGE_KEY) window.syncNowToCloud();
+    pushToCloud();
   };
 
   const origRemoveItem = localStorage.removeItem.bind(localStorage);
   localStorage.removeItem = function(k) {
     origRemoveItem(k);
-    if (k !== SECRET_STORAGE_KEY) window.syncNowToCloud();
+    pushToCloud();
   };
 })();
 </script>
+
 
 
 
