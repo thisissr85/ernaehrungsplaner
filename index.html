@@ -2,67 +2,7 @@
 <html lang="de">
 <head>
 
-<script>
-(function() {
-  const HOST = 'czawxhzlvtywzragbrjl' + '.supabase.co';
-  const SUPABASE_URL = 'https://' + HOST + '/rest/v1/planner_data?id=eq.1';
-  const SUPABASE_KEY = 'sb_publishable_FUjrl_0V4OKGjqhlywNmvA_inSrxqu4';
 
-  const headers = {
-    'apikey': SUPABASE_KEY,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
-  };
-
-  // 1. Daten beim Start aus der Cloud laden
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', SUPABASE_URL, false);
-  for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v);
-  try {
-    xhr.send(null);
-    if (xhr.status === 200) {
-      const rows = JSON.parse(xhr.responseText);
-      if (rows.length > 0 && rows[0].data && Object.keys(rows[0].data).length > 0) {
-        for (const [key, val] of Object.entries(rows[0].data)) {
-          localStorage.setItem(key, val);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('Offline-Modus aktiv:', e);
-  }
-
-  // 2. Änderungen automatisch in die Cloud speichern
-  let syncTimer = null;
-  function pushToCloud() {
-    clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => {
-      const snapshot = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        snapshot[k] = localStorage.getItem(k);
-      }
-      fetch(SUPABASE_URL, {
-        method: 'PATCH',
-        headers: headers,
-        body: JSON.stringify({ data: snapshot })
-      }).catch(err => console.error('Sync-Fehler:', err));
-    }, 500);
-  }
-
-  const origSetItem = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = function(k, v) {
-    origSetItem(k, v);
-    pushToCloud();
-  };
-
-  const origRemoveItem = localStorage.removeItem.bind(localStorage);
-  localStorage.removeItem = function(k) {
-    origRemoveItem(k);
-    pushToCloud();
-  };
-})();
-</script>
 
 
 
