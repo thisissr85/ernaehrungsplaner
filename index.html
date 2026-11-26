@@ -34,20 +34,62 @@
     <nav id="haupt-navi"></nav>
     <main id="app-inhalt"></main>
 
-    <!-- KERN-SYSTEM -->
-    <script>
-        const AppDaten = JSON.parse(localStorage.getItem('meinPlanerDaten')) || {
-            naehrstoffSpalten: [],
-            lebensmittel: [],
-            toepfe: [],
-            rezepte: [],
-            tagesplan: {},
-            gewicht: []
-        };
 
-        function speichereDaten() {
-            localStorage.setItem('meinPlanerDaten', JSON.stringify(AppDaten));
-        }
+
+    
+<!-- KERN-SYSTEM MIT SUPABASE-SYNC -->
+<script src="https://jsdelivr.net"></script>
+<script>
+const SUPABASE_URL = 'https://czawxhzlvtywzragbrjl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_FUjrl_0V4OKGjqhlywNmvA_inSrxqu4';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const AppDaten = JSON.parse(localStorage.getItem('meinPlanerDaten')) || {
+  naehrstoffSpalten: [],
+  lebensmittel: [],
+  toepfe: [],
+  rezepte: [],
+  tagesplan: {},
+  gewicht: []
+};
+
+let syncTimer = null;
+function speichereDaten() {
+  localStorage.setItem('meinPlanerDaten', JSON.stringify(AppDaten));
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    try {
+      await sbClient.from('planer_speicher').upsert({ id: 'hauptprofil', daten: AppDaten });
+    } catch (err) {
+      console.error('Supabase Speicherfehler:', err);
+    }
+  }, 500);
+}
+
+async function ladeVonSupabase() {
+  try {
+    const { data, error } = await sbClient
+      .from('planer_speicher')
+      .select('daten')
+      .eq('id', 'hauptprofil')
+      .maybeSingle();
+
+    if (data && data.daten) {
+      const lokalText = localStorage.getItem('meinPlanerDaten');
+      const cloudText = JSON.stringify(data.daten);
+      if (lokalText !== cloudText) {
+        localStorage.setItem('meinPlanerDaten', cloudText);
+        location.reload();
+      }
+    }
+  } catch (err) {
+    console.error('Supabase Ladefehler:', err);
+  }
+}
+window.addEventListener('DOMContentLoaded', ladeVonSupabase);
+
+
+
 
         function registriereModul(id, titel, htmlInhalt, initFunktion) {
             const navi = document.getElementById('haupt-navi');
